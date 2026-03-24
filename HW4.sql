@@ -1,7 +1,8 @@
 
 -- 1. Список всех клиентов
 
-SELECT distinct customer_id, first_name, last_name, email FROM customer
+SELECT customer_id, first_name, last_name, email 
+FROM customer
 
 -- 2. Клиенты с именем Carolyn
 
@@ -52,7 +53,8 @@ SELECT
     rental_date::date AS rental_date,
     staff_id
 FROM rental
-WHERE rental_date BETWEEN '2005-06-01' AND '2005-06-30'
+WHERE rental_date >= '2005-06-01' 
+	AND rental_date < '2005-07-01'
 
 -- 8. Фильмы после 2000 года длительностью 60–120 мин
 
@@ -71,7 +73,8 @@ SELECT
     payment_date::date AS payment_date,
     amount
 FROM payment
-WHERE payment_date BETWEEN '2007-04-01' AND '2007-04-30'
+WHERE payment_date >= '2007-04-01'
+  AND payment_date < '2007-05-01'
   AND amount <= 4
 ORDER BY amount DESC, payment_date ASC
 
@@ -118,7 +121,8 @@ VALUES
 SELECT * FROM students
 
 -- удаление одного студента
-DELETE FROM students WHERE id = 2
+DELETE FROM students 
+WHERE id = (SELECT MIN(id) FROM students)
 
 SELECT * FROM students
 
@@ -166,7 +170,7 @@ JOIN address a ON s.address_id = a.address_id
 -- 16. Полные имена клиентов и сотрудников
 
 SELECT first_name || ' ' || last_name AS full_name FROM customer
-UNION
+UNION ALL
 SELECT first_name || ' ' || last_name FROM staff
 
 
@@ -184,15 +188,17 @@ SELECT
     rental_date::date,
     staff_id
 FROM rental
-WHERE rental_date BETWEEN '2005-06-01' AND '2005-06-30'
+WHERE rental_date >= '2005-06-01' 
+	AND rental_date < '2005-07-01' 
+
 
 
 -- 19. Клиенты с 40+ оплат
 
 SELECT 
     customer_id,
-    COUNT(*) AS cnt,
-    ROUND(AVG(amount),2) AS avg_payment
+    COUNT(*) AS payment_count,
+    ROUND(AVG(amount), 2) AS avg_payment
 FROM payment
 GROUP BY customer_id
 HAVING COUNT(*) >= 40
@@ -333,6 +339,16 @@ SELECT *,
 	)) AS moving_avg,
 	ROUND(
     	(revenue - LAG(revenue) OVER (ORDER BY r_year, r_week))
-    	/ LAG(revenue) OVER (ORDER BY r_year, r_week) * 100, 2
+    	/ NULLIF(LAG(revenue) OVER (ORDER BY r_year, r_week), 0) * 100, 2
 	) AS growth_percent
 FROM weekly_revenue
+
+
+
+
+
+
+
+
+
+
