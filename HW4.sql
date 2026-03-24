@@ -1,8 +1,7 @@
 
--- 1. Все клиенты
+-- 1. Список всех клиентов
 
-SELECT * FROM customer
-
+SELECT distinct customer_id, first_name, last_name, email FROM customer
 
 -- 2. Клиенты с именем Carolyn
 
@@ -21,13 +20,13 @@ WHERE first_name ILIKE '%ary%'
 
 -- 4. 20 самых крупных транзакций
 
-SELECT *
+SELECT * 
 FROM payment
 ORDER BY amount DESC
 LIMIT 20
 
 
--- 5. Адреса магазинов (подзапрос)
+-- 5. Адреса всех магазинов (подзапрос)
 
 SELECT address
 FROM address
@@ -36,7 +35,7 @@ WHERE address_id IN (
 )
 
 
--- 6. День, месяц, день недели (1=Пн)
+-- 6. День, месяц, день недели (Пн - 1)
 
 SELECT 
     payment_id,
@@ -48,16 +47,14 @@ FROM payment
 
 -- 7. Аренды за июнь 2005
 
-SELECT 
+SELECT
     customer_id,
     rental_date::date AS rental_date,
     staff_id
 FROM rental
-WHERE rental_date >= '2005-06-01'
-  AND rental_date < '2005-07-01'
+WHERE rental_date BETWEEN '2005-06-01' AND '2005-06-30'
 
-
--- 8. Фильмы после 2000, 60–120 мин
+-- 8. Фильмы после 2000 года длительностью 60–120 мин
 
 SELECT title, description, length
 FROM film
@@ -67,20 +64,20 @@ ORDER BY length DESC
 LIMIT 20
 
 
--- 9. Платежи апрель 2007 <= 4$
+-- 9. Платежи <4$ в апреле 2007
 
 SELECT 
     payment_id,
     payment_date::date AS payment_date,
     amount
 FROM payment
-WHERE payment_date >= '2007-04-01'
-  AND payment_date < '2007-05-01'
+WHERE payment_date BETWEEN '2007-04-01' AND '2007-04-30'
   AND amount <= 4
 ORDER BY amount DESC, payment_date ASC
 
 
--- 10. Jack, Bob, Sara + фамилия с p
+
+-- 10. Имена Jack, Bob, Sara и фамилия с 'p'
 
 SELECT 
     first_name AS "Имя",
@@ -105,42 +102,43 @@ CREATE TABLE students (
     address TEXT NOT NULL
 )
 
--- вставка с id > 50
+-- внесение студента с id > 50
 INSERT INTO students (id, first_name, last_name, age, birth_date, address)
-VALUES (51, 'Ivan', 'Ivanov', 20, '2004-01-01', 'Moscow')
+VALUES (60, 'Arina', 'Katysheva', 23, '2002-09-06', 'Moscow, str. Amurskaya, 8-80')
 
 SELECT * FROM students
 
--- несколько записей
+-- внесение нескольких студентов
 INSERT INTO students (first_name, last_name, age, birth_date, address)
 VALUES 
-('Petr','Petrov',21,'2003-02-02','SPB'),
-('Anna','Sidorova',22,'2002-03-03','Kazan')
+('Alexander','Osipov',22,'2003-10-14','Kazan, str. Baumana, 5-205'),
+('Anna','Potemina',24,'2002-03-23','Saint-Petersburg, str. Rubinshteyna, 2-180'),
+('Semen','Zhukov',21,'2004-07-02','Moscow, str. Pokrovka, 24-50')
 
 SELECT * FROM students
 
--- удалить одного
-DELETE FROM students WHERE id = 51
+-- удаление одного студента
+DELETE FROM students WHERE id = 2
 
 SELECT * FROM students
 
--- удалить таблицу
+-- удаление таблицы
 DROP TABLE students
 
--- попытка select
+-- попытка обращения к таблице
 SELECT * FROM students
 
 
--- 12. Уникальные имена
+-- 12. Количество уникальных имен клиентов
 
 SELECT COUNT(DISTINCT first_name) FROM customer
 
 
--- 13. 5 частых сумм платежей
+-- 13. 5 самых частых сумм платежей
 
 SELECT 
     amount,
-    MIN(payment_date) AS first_date,
+    MIN(payment_date::date) AS first_date,
     COUNT(*) AS count_payments,
     SUM(amount) AS total_sum
 FROM payment
@@ -149,28 +147,30 @@ ORDER BY count_payments DESC
 LIMIT 5
 
 
--- 14. Инвентарь по магазинам
+-- 14. Количество ячеек в инвентаре 
 
 SELECT store_id, COUNT(*) AS inventory_count
 FROM inventory
 GROUP BY store_id
 
 
--- 15. Адреса магазинов (JOIN)
+-- 15. Адреса магазинов
 
-SELECT a.address
+SELECT 
+	s.store_id,
+	a.address
 FROM store s
 JOIN address a ON s.address_id = a.address_id
 
 
--- 16. Все имена (customer + staff)
+-- 16. Полные имена клиентов и сотрудников
 
 SELECT first_name || ' ' || last_name AS full_name FROM customer
 UNION
 SELECT first_name || ' ' || last_name FROM staff
 
 
--- 17. Имена клиентов != сотрудников
+-- 17. Имена клиентов, не совпадающие с именами сотрудников
 
 SELECT first_name FROM customer
 EXCEPT
@@ -184,8 +184,7 @@ SELECT
     rental_date::date,
     staff_id
 FROM rental
-WHERE rental_date >= '2005-06-01'
-  AND rental_date < '2005-07-01'
+WHERE rental_date BETWEEN '2005-06-01' AND '2005-06-30'
 
 
 -- 19. Клиенты с 40+ оплат
@@ -215,19 +214,23 @@ ORDER BY films_count DESC
 
 WITH months AS (
     SELECT generate_series(
-        DATE '2005-01-01',
-        DATE '2006-12-31',
+        DATE_TRUNC('month', MIN(rental_date)),
+        DATE_TRUNC('month', MAX(rental_date)),
         INTERVAL '1 month'
     ) AS month
+    FROM rental
 )
+
 SELECT 
-    DATE_TRUNC('month', m.month) AS month,
-    ROUND(COALESCE(SUM(p.amount),0),1) AS revenue
+    m.month::date AS rental_month,
+    ROUND(COALESCE(SUM(p.amount), 0), 1) AS revenue
 FROM months m
-LEFT JOIN rental r ON DATE_TRUNC('month', r.rental_date) = DATE_TRUNC('month', m.month)
-LEFT JOIN payment p ON p.rental_id = r.rental_id
-GROUP BY 1
-ORDER BY 1
+LEFT JOIN rental r 
+    ON DATE_TRUNC('month', r.rental_date) = m.month
+LEFT JOIN payment p 
+    ON p.rental_id = r.rental_id
+GROUP BY m.month
+ORDER BY m.month
 
 
 -- 22. Средний платеж по жанрам
@@ -243,7 +246,7 @@ JOIN rental r ON r.inventory_id = i.inventory_id
 JOIN payment p ON p.rental_id = r.rental_id
 GROUP BY c.name
 HAVING COUNT(DISTINCT f.film_id) > 60
-ORDER BY avg_payment DESC
+ORDER BY avg_payment desc
 
 
 -- 23. Топ фильмов по субботам
@@ -260,7 +263,7 @@ ORDER BY cnt DESC, f.title
 LIMIT 5
 
 
--- 24. Сумма, дата, день недели (текст)
+-- 24. Сумма, дата и день недели оплаты
 
 SELECT 
     amount,
@@ -285,7 +288,7 @@ JOIN rental r ON r.inventory_id = i.inventory_id
 GROUP BY category
 
 
--- Создание weekly_revenue
+-- Создание таблицы weekly_revenue
 
 DROP TABLE IF EXISTS weekly_revenue
 
@@ -305,31 +308,31 @@ SELECT * FROM weekly_revenue
 -- 26. Накопленная выручка
 
 SELECT *,
-ROUND(SUM(revenue) OVER (ORDER BY r_year, r_week)) AS cumulative_revenue
+	ROUND(SUM(revenue) OVER (ORDER BY r_year, r_week)) AS cumulative_revenue
 FROM weekly_revenue
 
 
 -- 27. Скользящая средняя
 
 SELECT *,
-ROUND(SUM(revenue) OVER (ORDER BY r_year, r_week)) AS cumulative,
-ROUND(AVG(revenue) OVER (
-    ORDER BY r_year, r_week
-    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
-)) AS moving_avg
+	ROUND(SUM(revenue) OVER (ORDER BY r_year, r_week)) AS cumulative,
+	ROUND(AVG(revenue) OVER (
+    	ORDER BY r_year, r_week
+    	ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+	)) AS moving_avg
 FROM weekly_revenue
 
 
--- 28. Прирост %
+-- 28. Прирост недельной выручки
 
 SELECT *,
-ROUND(SUM(revenue) OVER (ORDER BY r_year, r_week)) AS cumulative,
-ROUND(AVG(revenue) OVER (
-    ORDER BY r_year, r_week
-    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
-)) AS moving_avg,
-ROUND(
-    (revenue - LAG(revenue) OVER (ORDER BY r_year, r_week))
-    / LAG(revenue) OVER (ORDER BY r_year, r_week) * 100, 2
-) AS growth_percent
+	ROUND(SUM(revenue) OVER (ORDER BY r_year, r_week)) AS cumulative,
+	ROUND(AVG(revenue) OVER (
+    	ORDER BY r_year, r_week
+    	ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+	)) AS moving_avg,
+	ROUND(
+    	(revenue - LAG(revenue) OVER (ORDER BY r_year, r_week))
+    	/ LAG(revenue) OVER (ORDER BY r_year, r_week) * 100, 2
+	) AS growth_percent
 FROM weekly_revenue
